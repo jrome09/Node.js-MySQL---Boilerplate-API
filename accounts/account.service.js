@@ -85,8 +85,7 @@ async function register(params, origin) {
   // validate
   if (await db.Account.findOne({ where: { email: params.email } })) {
     // send already registered error in email to prevent account enumeration
-    await sendAlreadyRegisteredEmail(params.email, origin);
-    return;
+    throw 'Email "' + params.email + '" is already registered';
   }
 
   // create account object
@@ -95,7 +94,10 @@ async function register(params, origin) {
   // first registered account is an admin
   const isFirstAccount = (await db.Account.count()) === 0;
   account.role = isFirstAccount ? Role.Admin : Role.User;
-  account.verificationToken = randomTokenString();
+  
+  // Set account as verified immediately (temporary fix)
+  account.verified = Date.now();
+  account.verificationToken = null;
 
   // hash password
   account.passwordHash = await hash(params.password);
@@ -103,8 +105,7 @@ async function register(params, origin) {
   // save account
   await account.save();
 
-  // send email
-  await sendVerificationEmail(account, origin);
+  return { message: "Registration successful" };
 }
 
 async function verifyEmail({ token }) {
